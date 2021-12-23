@@ -26,7 +26,7 @@
 #       - scripts -> Script de creacion.
 #       - tools	  -> Contenido de la primer etapa.
 #
-export BUILD_ROOT=/mnt/lfs/LFS-11.0
+export BUILD_ROOT=/mnt/LFS-11.0
 export LFS=/mnt/lfs
 export BACKUP=${BUILD_ROOT}/backup
 export SRC_SOURCES=${BUILD_ROOT}/sources/packages
@@ -64,8 +64,9 @@ function crear_directorios() {
 #
 function crear() {
   mkdir -pv $LFS/{etc,var} $LFS/usr/{bin,lib,sbin}
+
   for i in bin lib sbin; do
-    ln -sv usr/$i $LFS/$i
+    echo "ln -sv usr/$i $LFS/$i"
   done
 
   case $(uname -m) in
@@ -73,6 +74,13 @@ function crear() {
   esac
 
   mkdir -pv $LFS_TOOLS
+
+  chown -v lfs $LFS/{usr{,/*},lib,var,etc,bin,sbin,tools}
+  case $(uname -m) in
+	    x86_64) chown -v lfs $LFS/lib64 ;;
+  esac
+
+  #chown -R -v lfs ${BUILD_ROOT}/sources
 }
 
 
@@ -121,6 +129,8 @@ function gcc-pass-1() {
 
   tar xf ${SRC_SOURCES}/mpc-*
   mv -v mpc-* mpc
+
+  read
 
   case $(uname -m) in
     x86_64)
@@ -175,8 +185,8 @@ function linux-api-headers() {
   tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
   cd ${PKG_DIR}
   
-  make mrproper
-  make headers
+  make mrproper || exit 1
+  make headers || exit 1
   find usr/include -name '.*' -delete
   rm usr/include/Makefile
   cp -rv usr/include $LFS/usr
@@ -217,10 +227,10 @@ function glibc() {
       --build=$(../scripts/config.guess) \
       --enable-kernel=3.2                \
       --with-headers=$LFS/usr/include    \
-      libc_cv_slibdir=/usr/lib
+      libc_cv_slibdir=/usr/lib || exit 1
 
-  make ${J}
-  make DESTDIR=$LFS install
+  make ${J} || exit 1
+  make DESTDIR=$LFS install || exit 1
 
   sed '/RTLDLIST=/s@/usr@@g' -i $LFS/usr/bin/ldd
 
@@ -253,7 +263,8 @@ function libstdc++() {
      --disable-multilib              \
      --disable-nls                   \
      --disable-libstdcxx-pch         \
-     --with-gxx-include-dir=${LFS_TOOLS}/$LFS_TGT/include/c++/11.2.0
+     --with-gxx-include-dir=/tools/$LFS_TGT/include/c++/11.2.0
+     #--with-gxx-include-dir=${LFS_TOOLS}/$LFS_TGT/include/c++/11.2.0
 
   make ${J} || exit 1
   make DESTDIR=$LFS install
@@ -267,7 +278,7 @@ function libstdc++() {
 #
 function backup(){
  cd ${BACKUP}
- tar cvfj backup-lfs-cross-toolchain-$(date +"%m-%d-%y").tar.bz2 ${LFS}/{bin,etc,lib,lib64,mnt,sbin,tools,usr,var}
+ tar cvfj 00-backup-lfs-cross-toolchain-$(date +"%d-%m-%Y").tar.bz2 ${LFS}
 }
 
 #
@@ -275,12 +286,19 @@ function backup(){
 #
 function all() {
    crear_directorios
+   sleep 1
    crear
+   sleep 1
    binutils
+   sleep 1
    gcc-pass-1
+   sleep 1
    linux-api-headers
+   sleep 1
    glibc
+   sleep 1
    libstdc++
+   sleep 1
    backup
 }
 
