@@ -1,11 +1,12 @@
 #!/bin/bash
 
 ##
-# Autor  : Marcos Pablo Russo
-# E-Mail : marcospr1974@gmail.com
-# Licencia: GPL-3
+# Autor    : Marcos Pablo Russo
+# E-Mail   : marcospr1974@gmail.com
+# Fecha    : 23/12/2021
+# Licencia : GPL-3
 #
-# DescripciÃn:
+# Descripcion:
 #
 #   Mediante este script nos permite realizar el capitulo 5 de Linux From Scratch.
 #   De esta forma podemos automatizar toda la creaciÃn de los paquetes.
@@ -19,6 +20,8 @@
 # Configuracion de variables
 #
 #   lfs
+#   LFS-11.0
+#       - logs          -> Contene log los de configure, make y make install
 #       - sources
 #            - packages -> Paquetes sources.
 #            - patches  -> Patch.
@@ -26,36 +29,92 @@
 #       - scripts -> Script de creacion.
 #       - tools	  -> Contenido de la primer etapa.
 #
-export BUILD_ROOT=/mnt/LFS-11.0
-export LFS=/mnt/lfs
-export BACKUP=${BUILD_ROOT}/backup
-export SRC_SOURCES=${BUILD_ROOT}/sources/packages
-export SRC_FILES=${BUILD_ROOT}/sources/files
-export SRC_PATCH=${BUILD_ROOT}/sources/patches
-export LFS_TOOLS=${LFS}/tools
 
-# FLAGS de Compilacion
+source ./vars.sh
 
-LC_ALL=POSIX
-LFS_TGT=$(uname -m)-lfs-linux-gnu
-PATH=/usr/bin
-if [ ! -L /bin ]; then PATH=/bin:$PATH; fi
-PATH=$LFS_TOOLS/bin:$PATH
-CONFIG_SITE=$LFS/usr/share/config.site
-export LFS LC_ALL LFS_TGT PATH CONFIG_SITE
+clear
 
-# Cantidad de procesadores
-export MAKEFLAGS='-j4'
-export J='-j4'
+trap ctrl_c INT
+
+#
+# Si preciona la tecla control-c
+#
+function ctrl_c() {
+  echo -e "\n${redColour}[!] Saliendo...\n${endColour}"
+
+  exit 1
+}
+
+
+#
+# Muestra la ayuda si no se le pasa ningun parametro
+#
+function ayuda() {
+   echo -e "\n${redColour}[!] Uso: ./${0}${endColour}"
+   for i in $(seq 1 80); do
+     echo -ne "${redColour}-"
+   done
+   echo -ne "${endColour}"
+   echo -e "\n\n\t${grayColour}[p0]${endColour}${yellowColour} Crear Directorios (backup, sources, files)${endColour}"
+   echo -e "\t${grayColour}[p1]${endColour}${yellowColour} Crear Directorios (etc,var,usr/bin,usr/lib,usr/sbin)${endColour}"
+   echo -e "\t${grayColour}[p2]${endColour}${yellowColour} Compilar binutils${endColour}"
+   echo -e "\t${grayColour}[p3]${endColour}${yellowColour} Compilar gcc paso 1${endColour}"
+   echo -e "\t${grayColour}[p4]${endColour}${yellowColour} Compilar linux-api-headers${endColour}"
+   echo -e "\t${grayColour}[p5]${endColour}${yellowColour} Compilar glibc${endColour}"
+   echo -e "\t${grayColour}[p6]${endColour}${yellowColour} Compilar libstdc++${endColour}"
+   echo -e "\t${grayColour}[p7]${endColour}${yellowColour} Realizar backup${endColour}"
+   echo -e "\t${grayColour}[all]${endColour}${yellowColour} Realizar todos los pasos${endColour}"
+   echo -e "\t${grayColour}[h]${endColour}${yellowColour}   Muestra la ayuda${endColour}"
+}
+
+
+#
+# El comienzo de cada compilacion el titulo
+#
+function inicio() {
+  echo -e "${grayColour}----------------------------------------------------------------${endColour}"
+  echo -e "${grayColour}- Building : ${endColour}${yellowColour}${1}...${endColour}"
+}
+
+
+#
+# Lo que realiza cuando termina de compilar
+#
+function final() {
+  echo -e "${grayColour}- Finalizacion de la compilaciÃ³n dle paquete${endColour}"
+  echo -e "\t${yellowColour}[*] ${PKG_NAME}${endColour}${grayColour} con fecha : ${endColour}${yellowColour}$(date)${endColour}"
+  echo -e "${grayColour}----------------------------------------------------------------${endColour}"
+  rm -rf ${SRC_FILES}/${PKG_NAME}*
+}
+
+
+#
+# Realiza la descomprecion del archivo y muestra el inicio de lo que esta
+# realizando
+#
+# ${1} -> Nombre del programa a descomprimir.
+# ${2} -> Nombre de la funcion que le pasa a la funcion inicio
+#
+function descomprimir() {
+  cd ${SRC_FILES}
+  PKG_NAME=${1}
+  PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
+
+  inicio "${2}"
+
+  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
+  cd ${PKG_DIR}
+}
 
 #
 # Crear directorio principales de trabajo
 #
 function crear_directorios() {
+  inicio "directorios base"
   [[ -d ${BACKUP} ]] || mkdir -pv ${BACKUP}
   [[ -d ${SRC_SOURCES} ]] || mkdir -pv ${SRC_SOURCES}
   [[ -d ${SRC_FILES} ]] || mkdir -pv ${SRC_FILES}
-  [[ -d ${LFS_TOOLS} ]] || mkdir -pv ${LFS_TOOLS}
+  [[ -d ${LFS_LOGS} ]] || mkdir -pv ${LFS_LOGS}
 }
 
 
@@ -63,10 +122,12 @@ function crear_directorios() {
 # Crear directorios
 #
 function crear() {
+  inicio "directorios"
+
   mkdir -pv $LFS/{etc,var} $LFS/usr/{bin,lib,sbin}
 
   for i in bin lib sbin; do
-    echo "ln -sv usr/$i $LFS/$i"
+    ln -sv usr/$i $LFS/$i
   done
 
   case $(uname -m) in
@@ -79,8 +140,7 @@ function crear() {
   case $(uname -m) in
 	    x86_64) chown -v lfs $LFS/lib64 ;;
   esac
-
-  #chown -R -v lfs ${BUILD_ROOT}/sources
+  echo "----------------------------------------------------------------"
 }
 
 
@@ -88,38 +148,30 @@ function crear() {
 # Build binutils
 #
 function binutils() {
-  cd ${SRC_FILES}
-  export PKG_NAME="binutils"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building binutil..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
-  mkdir -v build
-  cd build
+  descomprimir "binutils" "binutils"
+
+  mkdir build && cd build
+
   ../configure --prefix=$LFS_TOOLS \
-             --with-sysroot=$LFS \
-             --target=$LFS_TGT   \
-             --disable-nls       \
-             --disable-werror || exit 1
-  make || exit 1
+              --with-sysroot=$LFS \
+              --target=$LFS_TGT   \
+              --disable-nls       \
+              --disable-werror  &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
+
+  make &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
 
   # Si hay problemas de compilacion poner -j1
-  make install ${J} || exit 1
+  make install ${J} &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
+
 
 #
 # Build gcc-pass-1
 #
 function gcc-pass-1() {
-  cd ${SRC_FILES}
-  export PKG_NAME="gcc"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building gcc-pass-1..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
+  descomprimir "gcc" "gcc-pass-1"
 
   tar xf ${SRC_SOURCES}/mpfr-*
   mv -v mpfr-* mpfr
@@ -130,8 +182,6 @@ function gcc-pass-1() {
   tar xf ${SRC_SOURCES}/mpc-*
   mv -v mpc-* mpc
 
-  read
-
   case $(uname -m) in
     x86_64)
       sed -e '/m64=/s/lib64/lib/' \
@@ -139,8 +189,7 @@ function gcc-pass-1() {
       ;;
   esac
 
-  mkdir -v build
-  cd build
+  mkdir build && cd build
 
   ../configure                                     \
     --target=$LFS_TGT                              \
@@ -161,38 +210,32 @@ function gcc-pass-1() {
     --disable-libssp                               \
     --disable-libvtv                               \
     --disable-libstdcxx                            \
-    --enable-languages=c,c++
+    --enable-languages=c,c++ &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
-  make ${J}
-  make install
+  make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
+  make install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
 
   cd ..
   cat gcc/limitx.h gcc/glimits.h gcc/limity.h > \
   `dirname $($LFS_TGT-gcc -print-libgcc-file-name)`/install-tools/include/limits.h
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
+
 
 #
 # Build linux-api-headers
 #
 function linux-api-headers() {
-  cd ${SRC_FILES}
-  export PKG_NAME="linux"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building linux-api-headers..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
-  
-  make mrproper || exit 1
-  make headers || exit 1
+  descomprimir "linux" "linux-api-headers"
+
+  make mrproper &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
+  make headers &>> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
   find usr/include -name '.*' -delete
   rm usr/include/Makefile
   cp -rv usr/include $LFS/usr
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
 
 
@@ -200,12 +243,7 @@ function linux-api-headers() {
 # Build glibc
 #
 function glibc() {
-  cd ${SRC_FILES}
-  export PKG_NAME="glibc"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building glibc..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
+  descomprimir "glibc" "glibc"
 
   case $(uname -m) in
      i?86)   ln -sfv ld-linux.so.2 $LFS/lib/ld-lsb.so.3
@@ -218,8 +256,8 @@ function glibc() {
   # Patches
   patch -Np1 -i ${SRC_PATCH}/glibc-2.34-fhs-1.patch
 
-  mkdir -v build
-  cd build
+  mkdir build && cd build
+
   echo "rootsbindir=/usr/sbin" > configparms
   ../configure                             \
       --prefix=/usr                      \
@@ -227,17 +265,16 @@ function glibc() {
       --build=$(../scripts/config.guess) \
       --enable-kernel=3.2                \
       --with-headers=$LFS/usr/include    \
-      libc_cv_slibdir=/usr/lib || exit 1
+      libc_cv_slibdir=/usr/lib &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
-  make ${J} || exit 1
-  make DESTDIR=$LFS install || exit 1
+  make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
+  make DESTDIR=$LFS install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
 
   sed '/RTLDLIST=/s@/usr@@g' -i $LFS/usr/bin/ldd
 
   $LFS/tools/libexec/gcc/$LFS_TGT/11.2.0/install-tools/mkheaders
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
 
 
@@ -245,33 +282,25 @@ function glibc() {
 # Build libstdc++
 #
 function libstdc++() {
-  cd ${SRC_FILES}
-  export PKG_NAME="gcc"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building gcc libstdc++..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
+  descomprimir "gcc" "libstdc++"
 
+  mkdir build && cd build
 
-  mkdir -v build
-  cd build
-
-  ../libstdc++-v3/configure           \
+  ../libstdc++-v3/configure          \
      --host=$LFS_TGT                 \
      --build=$(../config.guess)      \
      --prefix=/usr                   \
      --disable-multilib              \
      --disable-nls                   \
      --disable-libstdcxx-pch         \
-     --with-gxx-include-dir=/tools/$LFS_TGT/include/c++/11.2.0
-     #--with-gxx-include-dir=${LFS_TOOLS}/$LFS_TGT/include/c++/11.2.0
+     --with-gxx-include-dir=/tools/$LFS_TGT/include/c++/11.2.0 &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
-  make ${J} || exit 1
-  make DESTDIR=$LFS install
+  make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
+  make DESTDIR=$LFS install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
+
 
 #
 # Backup
@@ -302,4 +331,34 @@ function all() {
    backup
 }
 
-all
+# Menu principal
+if [ $# -eq 0 ]; then
+  ayuda
+elif [ $# -eq 1 ]; then
+   case ${1} in
+     p0)  crear_directorios
+          ;;
+     p1)  crear
+          ;;
+     p2)  binutils
+          ;;
+     p3)  gcc-pass-1
+          ;;
+     p4)  linux-api-headers
+          ;;
+     p5)  glibc
+          ;;
+     p6)  libstdc++
+          ;;
+     p7)  backup
+          ;;
+     all) all
+          ;;
+     h)   ayuda
+	  ;;
+     *)   ayuda
+	  ;;
+   esac
+else
+  ayuda
+fi

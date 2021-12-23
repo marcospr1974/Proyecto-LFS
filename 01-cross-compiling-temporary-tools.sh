@@ -1,11 +1,12 @@
 #!/bin/bash
 
 ##
-# Autor  : Marcos Pablo Russo
-# E-Mail : marcospr1974@gmail.com
-# Licencia: GPL-3
+# Autor    : Marcos Pablo Russo
+# E-Mail   : marcospr1974@gmail.com
+# Fecha    : 23/12/2021
+# Licencia : GPL-3
 #
-# DescripciÃn:
+# Descripcion:
 #
 #   Mediante este script nos permite realizar el capitulo 6 de Linux From Scratch.
 #   De esta forma podemos automatizar toda la creaciÃn de los paquetes.
@@ -19,6 +20,8 @@
 # Configuracion de variables
 #
 #   lfs
+#   LFS-11.0
+#       - logs          -> Contene log los de configure, make y make install
 #       - sources
 #            - packages -> Paquetes sources.
 #            - patches  -> Patch.
@@ -26,27 +29,93 @@
 #       - scripts -> Script de creacion.
 #       - tools	  -> Contenido de la primer etapa.
 #
-export BUILD_ROOT=/mnt/LFS-11.0
-export LFS=/mnt/lfs
-export BACKUP=${BUILD_ROOT}/backup
-export SRC_SOURCES=${BUILD_ROOT}/sources/packages
-export SRC_FILES=${BUILD_ROOT}/sources/files
-export SRC_PATCH=${BUILD_ROOT}/sources/patches
-export LFS_TOOLS=${LFS}/tools
 
-# FLAGS de Compilacion
 
-LC_ALL=POSIX
-LFS_TGT=$(uname -m)-lfs-linux-gnu
-PATH=/usr/bin
-if [ ! -L /bin ]; then PATH=/bin:$PATH; fi
-PATH=$LFS_TOOLS/bin:$PATH
-CONFIG_SITE=$LFS/usr/share/config.site
-export LFS LC_ALL LFS_TGT PATH CONFIG_SITE
+source ./vars.sh
 
-# Cantidad de procesadores
-export MAKEFLAGS='-j4'
-export J='-j4'
+clear
+
+trap ctrl_c INT
+
+#
+# Si preciona la tecla control-c
+#
+function ctrl_c() {
+  echo -e "\n${redColour}[!] Saliendo...\n${endColour}"
+
+  exit 1
+}
+
+
+#
+# Muestra la ayuda si no se le pasa ningun parametro
+#
+function ayuda() {
+   echo -e "\n${redColour}[!] Uso: ./${0}${endColour}"
+   for i in $(seq 1 80); do
+     echo -ne "${redColour}-"
+   done
+   echo -ne "${endColour}"
+   echo -e "\n\n\t${grayColour}[p0]${endColour}${yellowColour} Compilar m4${endColour}"
+   echo -e "\t${grayColour}[p1]${endColour}${yellowColour} Compilar ncurses${endColour}"
+   echo -e "\t${grayColour}[p2]${endColour}${yellowColour} Compilar bash${endColour}"
+   echo -e "\t${grayColour}[p3]${endColour}${yellowColour} Compilar coreutils${endColour}"
+   echo -e "\t${grayColour}[p4]${endColour}${yellowColour} Compilar diffutils${endColour}"
+   echo -e "\t${grayColour}[p5]${endColour}${yellowColour} Compilar file${endColour}"
+   echo -e "\t${grayColour}[p6]${endColour}${yellowColour} Compilar findutils${endColour}"
+   echo -e "\t${grayColour}[p7]${endColour}${yellowColour} Compilar gawk${endColour}"
+   echo -e "\t${grayColour}[p8]${endColour}${yellowColour} Compilar grep${endColour}"
+   echo -e "\t${grayColour}[p9]${endColour}${yellowColour} Compilar gzip${endColour}"
+   echo -e "\t${grayColour}[p10]${endColour}${yellowColour} Compilar make${endColour}"
+   echo -e "\t${grayColour}[p11]${endColour}${yellowColour} Compilar patch${endColour}"
+   echo -e "\t${grayColour}[p12]${endColour}${yellowColour} Compilar sed${endColour}"
+   echo -e "\t${grayColour}[p13]${endColour}${yellowColour} Compilar tar${endColour}"
+   echo -e "\t${grayColour}[p14]${endColour}${yellowColour} Compilar xz${endColour}"
+   echo -e "\t${grayColour}[p15]${endColour}${yellowColour} Compilar binutils-pass-2${endColour}"
+   echo -e "\t${grayColour}[p16]${endColour}${yellowColour} Compilar gcc-pass-2${endColour}"
+   echo -e "\t${grayColour}[p17]${endColour}${yellowColour} Realizar backup${endColour}"
+   echo -e "\t${grayColour}[all]${endColour}${yellowColour} Realizar todos los pasos${endColour}"
+   echo -e "\t${grayColour}[h]${endColour}${yellowColour}   Muestra la ayuda${endColour}"
+}
+
+
+#
+# El comienzo de cada compilacion el titulo
+#
+function inicio() {
+  echo -e "${grayColour}----------------------------------------------------------------${endColour}"
+  echo -e "${grayColour}- Building : ${endColour}${yellowColour}${1}...${endColour}"
+}
+
+
+#
+# Lo que realiza cuando termina de compilar
+#
+function final() {
+  echo -e "${grayColour}- Finalizacion de la compilaciÃ³n dle paquete${endColour}"
+  echo -e "\t${yellowColour}[*] ${PKG_NAME}${endColour}${grayColour} con fecha : ${endColour}${yellowColour}$(date)${endColour}"
+  echo -e "${grayColour}----------------------------------------------------------------${endColour}"
+  rm -rf ${SRC_FILES}/${PKG_NAME}*
+}
+
+#
+# Realiza la descomprecion del archivo y muestra el inicio de lo que esta
+# realizando
+#
+# ${1} -> Nombre del programa a descomprimir.
+# ${2} -> Nombre de la funcion que le pasa a la funcion inicio
+#
+function descomprimir() {
+  cd ${SRC_FILES}
+  PKG_NAME=${1}
+  PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
+
+  inicio "${2}"
+
+  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
+  cd ${PKG_DIR}
+}
+
 
 #
 # Crear directorio principales de trabajo
@@ -55,7 +124,7 @@ function crear_directorios() {
   [[ -d ${BACKUP} ]] || mkdir -pv ${BACKUP}
   [[ -d ${SRC_SOURCES} ]] || mkdir -pv ${SRC_SOURCES}
   [[ -d ${SRC_FILES} ]] || mkdir -pv ${SRC_FILES}
-  [[ -d ${LFS_TOOLS} ]] || mkdir -pv ${LFS_TOOLS}
+  [[ -d ${LFS_LOGS} ]] || mkdir -pv ${LFS_LOGS}
 }
 
 
@@ -63,25 +132,18 @@ function crear_directorios() {
 # Build m4
 #
 function m4() {
-  cd ${SRC_FILES}
-  export PKG_NAME="m4"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building m4..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-
-  cd ${PKG_DIR}
+  descomprimir "m4" "m4" 
 
   ./configure --prefix=/usr   \
 	      --host=$LFS_TGT \
-	      --build=$(build-aux/config.guess) || exit 1
+	      --build=$(build-aux/config.guess) &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
-  make ${J} || exit 1
+  make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
 
   # Si hay problemas de compilacion poner -j1
-  make DESTDIR=$LFS install || exit 1
+  make DESTDIR=$LFS install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log  || exit 1
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
 
 
@@ -89,19 +151,14 @@ function m4() {
 # Build ncurses
 #
 function ncurses() {
-  cd ${SRC_FILES}
-  export PKG_NAME="ncurses"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building ncurses..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
+  descomprimir "ncurses" "ncurses" 
 
   sed -i s/mawk// configure || exit 1
   mkdir build || exit 1
   pushd build || exit 1
     ../configure
-    make -C include ${J} || exit 1
-    make -C progs tic ${J} || exit 1
+    make -C include ${J}  &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
+    make -C progs tic ${J} &>> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
   popd
 
   ./configure --prefix=/usr                \
@@ -113,40 +170,33 @@ function ncurses() {
               --without-debug              \
               --without-ada                \
               --without-normal             \
-              --enable-widec || exit 1
+              --enable-widec &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
-  make ${J} || exit 1
+  make ${J} &>> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
 
-  make DESTDIR=$LFS TIC_PATH=$(pwd)/build/progs/tic install
+  make DESTDIR=$LFS TIC_PATH=$(pwd)/build/progs/tic install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
   echo "INPUT(-lncursesw)" > $LFS/usr/lib/libncurses.so
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
 
 #
 # Build bash
 #
 function bash2() {
-  cd ${SRC_FILES}
-  export PKG_NAME="bash"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building bash..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
+  descomprimir "bash" "bash2" 
 
   ./configure --prefix=/usr                   \
               --build=$(support/config.guess) \
               --host=$LFS_TGT                 \
-              --without-bash-malloc || exit 1
+              --without-bash-malloc &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
-  make ${J} || exit 1
-  make DESTDIR=$LFS install || exit 1
+  make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
+  make DESTDIR=$LFS install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
 
   ln -sv bash $LFS/bin/sh
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
 
 
@@ -154,29 +204,23 @@ function bash2() {
 # Build coreutils
 #
 function coreutils() {
-  cd ${SRC_FILES}
-  export PKG_NAME="coreutils"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building coreutils..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
+  descomprimir "coreutils" "coreutils" 
 
   ./configure --prefix=/usr                     \
               --host=$LFS_TGT                   \
               --build=$(build-aux/config.guess) \
               --enable-install-program=hostname \
-              --enable-no-install-program=kill,uptime || exit 1
+              --enable-no-install-program=kill,uptime &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
-  make ${J} || exit 1
-  make DESTDIR=$LFS install || exit 1
+  make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
+  make DESTDIR=$LFS install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
 
   mv -v $LFS/usr/bin/chroot                    $LFS/usr/sbin
   mkdir -pv $LFS/usr/share/man/man8
   mv -v $LFS/usr/share/man/man1/chroot.1       $LFS/usr/share/man/man8/chroot.8
   sed -i 's/"1"/"8"/'                          $LFS/usr/share/man/man8/chroot.8
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
 
 
@@ -184,20 +228,14 @@ function coreutils() {
 # Build diffutils
 #
 function diffutils() {
-  cd ${SRC_FILES}
-  export PKG_NAME="diffutils"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building diffutils..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
+  descomprimir "diffutils" "diffutils" 
 
+  ./configure --prefix=/usr --host=$LFS_TGT &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
-  ./configure --prefix=/usr --host=$LFS_TGT || exit 1
+  make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
+  make DESTDIR=$LFS install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
 
-  make ${J} || exit 1
-  make DESTDIR=$LFS install || exit 1
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
 
 
@@ -205,29 +243,23 @@ function diffutils() {
 # Build file
 #
 function file2() {
-  cd ${SRC_FILES}
-  export PKG_NAME="file"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building file..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
+  descomprimir "file" "file2" 
 
   mkdir build
   pushd build
     ../configure --disable-bzlib      \
                  --disable-libseccomp \
                  --disable-xzlib      \
-                 --disable-zlib || exit 1
-      make ${J} || exit 1
+                 --disable-zlib &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
+      make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
       popd
 
-  ./configure --prefix=/usr --host=$LFS_TGT --build=$(./config.guess) || exit 1
+  ./configure --prefix=/usr --host=$LFS_TGT --build=$(./config.guess) &>> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
-  make FILE_COMPILE=$(pwd)/build/src/file ${J} || exit 1
-  make DESTDIR=$LFS install || exit 1
+  make FILE_COMPILE=$(pwd)/build/src/file ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
+  make DESTDIR=$LFS install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
 
 
@@ -235,24 +267,17 @@ function file2() {
 # Build findutils
 #
 function findutils() {
-  cd ${SRC_FILES}
-  export PKG_NAME="findutils"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building fundutils..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
-
+  descomprimir "findutils" "findutils" 
 
   ./configure --prefix=/usr                   \
               --localstatedir=/var/lib/locate \
               --host=$LFS_TGT                 \
-              --build=$(build-aux/config.guess) || exit 1
+              --build=$(build-aux/config.guess) &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
-  make ${J} || exit 1
-  make DESTDIR=$LFS install || exit 1
+  make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
+  make DESTDIR=$LFS install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
 
 
@@ -260,24 +285,17 @@ function findutils() {
 # Build gawk
 #
 function gawk2() {
-  cd ${SRC_FILES}
-  export PKG_NAME="gawk"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building linux-api-headers..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
-
+  descomprimir "gawk" "gawk2" 
 
   sed -i 's/extras//' Makefile.in
   ./configure --prefix=/usr   \
 	      --host=$LFS_TGT \
-	      --build=$(./config.guess) || exit 1
+	      --build=$(./config.guess) &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
-  make ${J} || exit 1
-  make DESTDIR=$LFS install || exit 1
+  make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
+  make DESTDIR=$LFS install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
 
 
@@ -285,21 +303,15 @@ function gawk2() {
 # Build grep
 #
 function grep2() {
-  cd ${SRC_FILES}
-  export PKG_NAME="grep"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building grep..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
+  descomprimir "grep" "grep2" 
 
   ./configure --prefix=/usr   \
-	      --host=$LFS_TGT || exit 1
+	      --host=$LFS_TGT &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
-  make ${J} || exit 1
-  make DESTDIR=$LFS install || exit 1
+  make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
+  make DESTDIR=$LFS install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PK_NAME}
 }
 
 
@@ -307,19 +319,13 @@ function grep2() {
 # Build gzip
 #
 function gzip2() {
-  cd ${SRC_FILES}
-  export PKG_NAME="gzip"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building linux-api-headers..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
+  descomprimir "gzip" "gzip2" 
 
-  ./configure --prefix=/usr --host=$LFS_TGT || exit 1
-  make ${J} || exit 1
-  make DESTDIR=$LFS install || exit 1
+  ./configure --prefix=/usr --host=$LFS_TGT &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
+  make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
+  make DESTDIR=$LFS install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
 
 
@@ -327,23 +333,17 @@ function gzip2() {
 # Build make
 #
 function make2() {
-  cd ${SRC_FILES}
-  export PKG_NAME="make"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building make..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
+  descomprimir "make" "make2" 
 
   ./configure --prefix=/usr   \
               --without-guile \
               --host=$LFS_TGT \
-              --build=$(build-aux/config.guess) || exit 1
+              --build=$(build-aux/config.guess) &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
-  make ${J} || exit 1
-  make DESTDIR=$LFS install || exit 1
+  make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
+  make DESTDIR=$LFS install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
 
 
@@ -351,26 +351,17 @@ function make2() {
 # Build patch
 #
 function patch2() {
-  cd ${SRC_FILES}
-  export PKG_NAME="patch"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building patch..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
-
-
-
+  descomprimir "patch" "patch2" 
 
   ./configure --prefix=/usr   \
               --host=$LFS_TGT \
-              --build=$(build-aux/config.guess) || exit 1
+              --build=$(build-aux/config.guess) &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
 
-  make ${J} || exit 1
-  make DESTDIR=$LFS install || exit 1
+  make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
+  make DESTDIR=$LFS install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
 
 
@@ -378,22 +369,15 @@ function patch2() {
 # Build sed
 #
 function sed2() {
-  cd ${SRC_FILES}
-  export PKG_NAME="sed"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building sed..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
-
+  descomprimir "sed" "sed2" 
 
   ./configure --prefix=/usr   \
-              --host=$LFS_TGT || exit 1
+              --host=$LFS_TGT &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
-  make ${J} || exit 1
-  make DESTDIR=$LFS install || exit 1
+  make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
+  make DESTDIR=$LFS install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
 
 
@@ -401,23 +385,16 @@ function sed2() {
 # Build tar
 #
 function tar2() {
-  cd ${SRC_FILES}
-  export PKG_NAME="tar"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building tar..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
-
+  descomprimir "tar" "tar2" 
 
   ./configure --prefix=/usr                     \
 	      --host=$LFS_TGT                   \
-	      --build=$(build-aux/config.guess) || exit 1
+	      --build=$(build-aux/config.guess) &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
-  make ${J} || exit 1
-  make DESTDIR=$LFS install || exit 1
+  make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
+  make DESTDIR=$LFS install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
 
 
@@ -425,25 +402,18 @@ function tar2() {
 # Build xz
 #
 function xz2() {
-  cd ${SRC_FILES}
-  export PKG_NAME="xz"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building xz..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
-
+  descomprimir "xz" "xz2" 
 
   ./configure --prefix=/usr                     \
               --host=$LFS_TGT                   \
               --build=$(build-aux/config.guess) \
               --disable-static                  \
-              --docdir=/usr/share/doc/xz-5.2.5 || exit 1
+              --docdir=/usr/share/doc/xz-5.2.5 &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
-  make ${J} || exit 1
-  make DESTDIR=$LFS install || exit 1
+  make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
+  make DESTDIR=$LFS install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
 
 
@@ -451,12 +421,7 @@ function xz2() {
 # Build binutils-pass-2
 #
 function binutils-pass-2() {
-  cd ${SRC_FILES}
-  export PKG_NAME="binutils"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building binutils..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
+  descomprimir "binutils" "binutils-pass-2" 
 
   mkdir -v build
   cd       build
@@ -467,15 +432,14 @@ function binutils-pass-2() {
       --disable-nls              \
       --enable-shared            \
       --disable-werror           \
-      --enable-64-bit-bfd || exit 1
+      --enable-64-bit-bfd &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
-  make ${J} || exit 1
+  make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
 
-  make DESTDIR=$LFS install -j1 || exit 1
+  make DESTDIR=$LFS install -j1 &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
   install -vm755 libctf/.libs/libctf.so.0.0.0 $LFS/usr/lib || exit 1
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
 
 
@@ -483,12 +447,7 @@ function binutils-pass-2() {
 # Build gcc-pass-2
 #
 function gcc-pass-2() {
-  cd ${SRC_FILES}
-  export PKG_NAME="gcc"
-  export PKG_DIR=$(echo ${SRC_FILES}/${PKG_NAME}*)
-  echo "- Building gcc-pass-2..."
-  tar xf ${SRC_SOURCES}/${PKG_NAME}* || exit 1
-  cd ${PKG_DIR}
+  descomprimir "gcc" "gcc-pass-2"
 
   tar xf ${SRC_SOURCES}/mpfr-*
   mv -v mpfr-* mpfr
@@ -506,8 +465,7 @@ function gcc-pass-2() {
       ;;
   esac
 
-  mkdir -v build
-  cd build
+  mkdir build && cd build 
 
   mkdir -pv $LFS_TGT/libgcc
   ln -s ../../../libgcc/gthr-posix.h $LFS_TGT/libgcc/gthr-default.h
@@ -528,16 +486,15 @@ function gcc-pass-2() {
 	--disable-libssp                               \
 	--disable-libvtv                               \
 	--disable-libstdcxx                            \
-	--enable-languages=c,c++ || exit 1
+	--enable-languages=c,c++ &> ${LFS_LOGS}/configure-${PKG_NAME}.log || exit 1
 
-  make ${J} || exit 1
+  make ${J} &> ${LFS_LOGS}/make-${PKG_NAME}.log || exit 1
 
-  make DESTDIR=$LFS install || exit 1
+  make DESTDIR=$LFS install &> ${LFS_LOGS}/make-install-${PKG_NAME}.log || exit 1
 
   ln -sv gcc $LFS/usr/bin/cc
 
-  echo "- Borrando ${PKG_DIR}"
-  rm -rf ${SRC_FILES}/${PKG_NAME}*
+  final ${PKG_NAME}
 }
 
 
@@ -594,4 +551,56 @@ function all() {
 
 }
 
-all
+# Menu principal
+if [ $# -eq 0 ]; then
+  ayuda
+elif [ $# -eq 1 ]; then
+   case ${1} in
+     p0)  m4
+          ;;
+     p1)  ncurses
+          ;;
+     p2)  bash2
+          ;;
+     p3)  coreutils
+          ;;
+     p4)  diffutils
+          ;;
+     p5)  file2
+          ;;
+     p6)  findutils
+          ;;
+     p7)  gawk2
+          ;;
+     p8)  grep2
+          ;;
+     p9)  gzip2
+          ;;
+     p10) make2
+          ;;
+     p11) patch2
+          ;;
+     p12) sed2
+          ;;
+     p13) tar2
+          ;;
+     p14) xz2
+          ;;
+     p15) binutils-pass-2
+          ;;
+     p16) gcc-pass-2
+          ;;
+     p17) backup
+          ;;
+
+     all) all
+          ;;
+     h)   ayuda
+          ;;
+     *)   ayuda
+          ;;
+   esac
+else
+  ayuda
+fi
+
