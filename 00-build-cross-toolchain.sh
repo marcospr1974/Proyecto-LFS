@@ -55,16 +55,16 @@ function ayuda() {
      echo -ne "${redColour}-"
    done
    echo -ne "${endColour}"
-   echo -e "\n\n\t${grayColour}[p0]${endColour}${yellowColour} Crear Directorios (backup, sources, files)${endColour}"
-   echo -e "\t${grayColour}[p1]${endColour}${yellowColour} Crear Directorios (etc,var,usr/bin,usr/lib,usr/sbin)${endColour}"
-   echo -e "\t${grayColour}[p2]${endColour}${yellowColour} Compilar binutils${endColour}"
-   echo -e "\t${grayColour}[p3]${endColour}${yellowColour} Compilar gcc paso 1${endColour}"
-   echo -e "\t${grayColour}[p4]${endColour}${yellowColour} Compilar linux-api-headers${endColour}"
-   echo -e "\t${grayColour}[p5]${endColour}${yellowColour} Compilar glibc${endColour}"
-   echo -e "\t${grayColour}[p6]${endColour}${yellowColour} Compilar libstdc++${endColour}"
-   echo -e "\t${grayColour}[p7]${endColour}${yellowColour} Realizar backup${endColour}"
+   echo -e "\n\n\t${grayColour}[p0]${endColour}${yellowColour}  Crear Directorios (backup, sources, files)${endColour}"
+   echo -e "\t${grayColour}[p1]${endColour}${yellowColour}  Crear Directorios (etc,var,usr/bin,usr/lib,usr/sbin)${endColour}"
+   echo -e "\t${grayColour}[p2]${endColour}${yellowColour}  Compilar binutils${endColour}"
+   echo -e "\t${grayColour}[p3]${endColour}${yellowColour}  Compilar gcc paso 1${endColour}"
+   echo -e "\t${grayColour}[p4]${endColour}${yellowColour}  Compilar linux-api-headers${endColour}"
+   echo -e "\t${grayColour}[p5]${endColour}${yellowColour}  Compilar glibc${endColour}"
+   echo -e "\t${grayColour}[p6]${endColour}${yellowColour}  Compilar libstdc++${endColour}"
+   echo -e "\t${grayColour}[p7]${endColour}${yellowColour}  Realizar backup${endColour}"
    echo -e "\t${grayColour}[all]${endColour}${yellowColour} Realizar todos los pasos${endColour}"
-   echo -e "\t${grayColour}[h]${endColour}${yellowColour}   Muestra la ayuda${endColour}"
+   echo -e "\t${grayColour}[h]${endColour}${yellowColour}   Muestra la ayuda${endColour}\n"
 }
 
 
