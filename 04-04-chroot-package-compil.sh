@@ -1960,6 +1960,8 @@ function stripping() {
 #
 function limpieza() {
    rm -rv /sources
+   find /usr/lib /usr/libexec -name \*.la -delete
+   find /usr -depth -name $(uname -m)-lfs-linux-gnu\* | xargs rm -rf
    rm -rf /tmp/*
 }
 
