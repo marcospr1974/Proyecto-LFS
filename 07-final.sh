@@ -34,6 +34,8 @@ grayColour="\e[0;37m\033[1m"
 
 # Variables globales
 LFS=/mnt/lfs
+BUILD_ROOT=/mnt/LFS-11.0
+BACKUP=${BUILD_ROOT}/backup
 
 clear
 
