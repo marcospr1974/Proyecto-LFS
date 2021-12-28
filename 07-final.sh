@@ -94,7 +94,7 @@ EOF
 #
 function backup(){
   cd ${BACKUP}
-  tar cvfj 06-backup-lfs-final-$(date +"%m-%d-%y").tar.bz2 ${LFS}
+  tar cvfj 07-backup-lfs-final-$(date +"%m-%d-%y").tar.bz2 ${LFS}
 }
 
 
